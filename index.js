@@ -29,11 +29,32 @@ async function run() {
       .db("Foodo")
       .collection("tableReservation");
     const paymentsCollection = client.db("Foodo").collection("payments");
-
+    // Menu add, delete, get
     app.get("/menu", async (req, res) => {
       const query = {};
       const result = await menuCollection.find(query).toArray();
       res.send(result);
+    });
+
+    // User add, delete, make change of users
+    app.get("/users", async (req, res) => {
+      const query = {};
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.put("/users", async (req, res) => {
+      const user = req.body;
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
+
+    // Get, add, delete Admin
+    app.get("/user/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isAdmin: user?.role === "admin" });
     });
   } finally {
   }
