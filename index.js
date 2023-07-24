@@ -4,12 +4,12 @@ const cors = require("cors");
 const port = process.env.PORT || 5000;
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
-
+const jwt = require("jsonwebtoken");
 const app = express();
 // middleware
 app.use(cors());
 app.use(express.json());
-console.log(process.env.DB_UserName, process.env.DB_Password);
+// console.log(process.env.DB_UserName, process.env.DB_Password);
 const uri = `mongodb+srv://${process.env.DB_UserName}:${process.env.DB_Password}@cluster0.npnp02m.mongodb.net/?retryWrites=true&w=majority`;
 
 const client = new MongoClient(uri, {
@@ -17,6 +17,22 @@ const client = new MongoClient(uri, {
   useUnifiedTopology: true,
   serverApi: ServerApiVersion.v1,
 });
+
+function verifyJWT(req, res, next) {
+  const authHeader = req.headers.authorization;
+  // console.log(authHeader);
+  if (!authHeader) {
+    return res.status(401).send("Unauthorized Access");
+  }
+  const token = authHeader.split(" ")[1];
+  jwt.verify(token, process.env.ACCESS_TOKEN, function (err, decoded) {
+    if (err) {
+      return res.status(403).send({ message: "Forbidden Access Request" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+}
 
 //
 async function run() {
@@ -29,6 +45,34 @@ async function run() {
       .db("Foodo")
       .collection("tableReservation");
     const paymentsCollection = client.db("Foodo").collection("payments");
+
+    // Verify Admin
+    const verifyAdmin = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+
+      if (user?.role !== "admin") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
+    //jwt
+    app.get("/jwt", async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const user = await usersCollection.findOne(query);
+      // console.log(user);
+      if (user) {
+        const token = jwt.sign({ email }, process.env.ACCESS_TOKEN, {
+          expiresIn: "1d",
+        });
+        return res.send({ accessToken: token });
+      }
+      res.status(403).send({ accessToken: "Forbidden Access" });
+    });
+
     // Menu add, delete, get
     app.get("/menu", async (req, res) => {
       const query = {};
@@ -50,11 +94,29 @@ async function run() {
     });
 
     // Get, add, delete Admin
-    app.get("/user/admin/:email", async (req, res) => {
+    app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
       const user = await usersCollection.findOne(query);
       res.send({ isAdmin: user?.role === "admin" });
+    });
+
+    //make admin
+    app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
     });
   } finally {
   }
