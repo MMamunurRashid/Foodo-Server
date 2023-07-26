@@ -49,6 +49,7 @@ async function run() {
     // Verify Admin
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
+      console.log(decodedEmail);
       const query = { email: decodedEmail };
       const user = await usersCollection.findOne(query);
 
@@ -81,16 +82,16 @@ async function run() {
     });
 
     // User add, delete, make change of users
-    app.get("/users", async (req, res) => {
-      const query = {};
-      const result = await usersCollection.find(query).toArray();
-      res.send(result);
-    });
-
     app.put("/users", async (req, res) => {
       const user = req.body;
       const result = await usersCollection.insertOne(user);
       res.send(result);
+    });
+
+    app.get("/users", verifyJWT, async (req, res) => {
+      const query = {};
+      const users = await usersCollection.find(query).toArray();
+      res.send(users);
     });
 
     // Get, add, delete Admin
@@ -117,6 +118,32 @@ async function run() {
         options
       );
       res.send(result);
+    });
+
+    // make staff
+    app.put("/users/staff/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          role: "staff",
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+
+    //get staff from admin panel
+    app.get("/staff", verifyJWT, verifyAdmin, async (req, res) => {
+      const role = "staff";
+      const query = { option: option };
+      const Staff = await usersCollection.find(query).toArray();
+      res.send(Staff);
     });
   } finally {
   }
