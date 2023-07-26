@@ -90,6 +90,19 @@ async function run() {
       const result = await menuCollection.find(query).toArray();
       res.send(result);
     });
+    //add menu by admin
+    app.post("/menu/admin", async (req, res) => {
+      const query = req.body;
+      const product = await menuCollection.insertOne(query);
+      res.send(product);
+    });
+
+    //add menu by staff
+    app.post("/menu/staff", async (req, res) => {
+      const query = req.body;
+      const product = await menuCollection.insertOne(query);
+      res.send(product);
+    });
     // delete menu
     app.delete("/menu/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
