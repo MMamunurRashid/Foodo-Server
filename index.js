@@ -49,7 +49,7 @@ async function run() {
     // Verify Admin
     const verifyAdmin = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
-      console.log(decodedEmail);
+      // console.log(decodedEmail);
       const query = { email: decodedEmail };
       const user = await usersCollection.findOne(query);
 
@@ -58,7 +58,17 @@ async function run() {
       }
       next();
     };
+    // Verify Staff
+    const verifyStaff = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
 
+      if (user?.role !== "staff") {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
     //jwt
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
@@ -80,6 +90,13 @@ async function run() {
       const result = await menuCollection.find(query).toArray();
       res.send(result);
     });
+    // delete menu
+    app.delete("/menu/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.deleteOne(query);
+      res.send(result);
+    });
 
     // User add, delete, make change of users
     app.put("/users", async (req, res) => {
@@ -94,7 +111,7 @@ async function run() {
       res.send(users);
     });
 
-    // Get, add, delete Admin
+    // Get, add, delete Admin. All kind of Admin role
     app.get("/users/admin/:email", async (req, res) => {
       const email = req.params.email;
       const query = { email };
@@ -105,7 +122,8 @@ async function run() {
     //make admin
     app.put("/users/admin/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
+      const filter = { _id: new ObjectId(id) };
+      // console.log(filter);
       const options = { upsert: true };
       const updatedDoc = {
         $set: {
@@ -123,7 +141,8 @@ async function run() {
     // make staff
     app.put("/users/staff/:id", verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const filter = { _id: ObjectId(id) };
+      // console.log(id);
+      const filter = { _id: new ObjectId(id) };
       const options = { upsert: true };
       const updatedDoc = {
         $set: {
@@ -141,9 +160,34 @@ async function run() {
     //get staff from admin panel
     app.get("/staff", verifyJWT, verifyAdmin, async (req, res) => {
       const role = "staff";
-      const query = { option: option };
+      const query = { role: role };
       const Staff = await usersCollection.find(query).toArray();
       res.send(Staff);
+    });
+    // delete staff
+    app.delete("/staff/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await usersCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // get all  admin
+    app.get("/admin", verifyJWT, verifyAdmin, async (req, res) => {
+      const role = "admin";
+      const query = { role: role };
+      const Staff = await usersCollection.find(query).toArray();
+      res.send(Staff);
+    });
+
+    // all kind of a staff role
+    app.get("/users/staff/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      console.log(user.role);
+      res.send({ isStaff: user?.role === "staff" });
     });
   } finally {
   }
