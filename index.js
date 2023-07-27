@@ -41,7 +41,8 @@ async function run() {
 
     const usersCollection = client.db("Foodo").collection("users");
     const menuCollection = client.db("Foodo").collection("menu");
-    const bookingsCollection = client
+    const orderCollection = client.db("Foodo").collection("order");
+    const tableReserveCollection = client
       .db("Foodo")
       .collection("tableReservation");
     const paymentsCollection = client.db("Foodo").collection("payments");
@@ -85,6 +86,17 @@ async function run() {
     });
 
     // Menu add, delete, get
+    app.get("/menu/limit", async (req, res) => {
+      const query = {};
+      const result = await menuCollection.find(query).limit(6).toArray();
+      res.send(result);
+    });
+    app.get("/menu/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await menuCollection.findOne(query);
+      res.send(result);
+    });
     app.get("/menu", async (req, res) => {
       const query = {};
       const result = await menuCollection.find(query).toArray();
@@ -201,6 +213,13 @@ async function run() {
       const user = await usersCollection.findOne(query);
       console.log(user.role);
       res.send({ isStaff: user?.role === "staff" });
+    });
+
+    // bookings
+    app.post("/orders", async (req, res) => {
+      const query = req.body;
+      const result = await orderCollection.insertOne(query);
+      res.send(result);
     });
   } finally {
   }
