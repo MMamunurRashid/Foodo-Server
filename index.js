@@ -208,17 +208,76 @@ async function run() {
     // all kind of a staff role
     app.get("/users/staff/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
+      // console.log(email);
       const query = { email };
       const user = await usersCollection.findOne(query);
-      console.log(user.role);
+      // console.log(user.role);
       res.send({ isStaff: user?.role === "staff" });
     });
 
-    // bookings
+    // Orders
     app.post("/orders", async (req, res) => {
       const query = req.body;
       const result = await orderCollection.insertOne(query);
+      res.send(result);
+    });
+    //get order for admin
+    app.get("/orders", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = {};
+      const result = await orderCollection.find(query).toArray();
+      res.send(result);
+    });
+    //get order for admin
+    app.get("/orders-for-staff", verifyJWT, verifyStaff, async (req, res) => {
+      const query = {};
+      const result = await orderCollection.find(query).toArray();
+      res.send(result);
+    });
+    // user oder
+    app.get("/my-order", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      console.log(req.query);
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send("Forbidden Access Request");
+      }
+      const query = { userEmail: email };
+      const product = await orderCollection.find(query).toArray();
+      res.send(product);
+    });
+
+    // paid
+    app.put("/paid/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          payStatus: "paid",
+        },
+      };
+      const result = await orderCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
+      res.send(result);
+    });
+    // served
+    app.put("/serve/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const updatedDoc = {
+        $set: {
+          serveStatus: "served",
+        },
+      };
+      const result = await orderCollection.updateOne(
+        filter,
+        updatedDoc,
+        options
+      );
       res.send(result);
     });
   } finally {
