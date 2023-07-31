@@ -299,7 +299,28 @@ async function run() {
       const result = await tableReserveCollection.find(query).toArray();
       res.send(result);
     });
-
+    //get table reservation for admin
+    app.get(
+      "/table-reservation-for-admin",
+      verifyJWT,
+      verifyAdmin,
+      async (req, res) => {
+        const query = {};
+        const result = await tableReserveCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
+    //get order for admin
+    app.get(
+      "/table-reservation-for-staff",
+      verifyJWT,
+      verifyStaff,
+      async (req, res) => {
+        const query = {};
+        const result = await tableReserveCollection.find(query).toArray();
+        res.send(result);
+      }
+    );
     // finished
   } finally {
   }
