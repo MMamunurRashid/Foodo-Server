@@ -236,7 +236,7 @@ async function run() {
     // user oder
     app.get("/my-order", verifyJWT, async (req, res) => {
       const email = req.query.email;
-      console.log(req.query);
+      // console.log(req.query);
       const decodedEmail = req.decoded.email;
       if (email !== decodedEmail) {
         return res.status(403).send("Forbidden Access Request");
@@ -280,6 +280,27 @@ async function run() {
       );
       res.send(result);
     });
+
+    //Table Reservation
+    app.post("/table-reservation", async (req, res) => {
+      const query = req.body;
+      const result = await tableReserveCollection.insertOne(query);
+      res.send(result);
+    });
+    // user table reservation
+    app.get("/my-table-reservation", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      console.log(req.query);
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send("Forbidden Access Request");
+      }
+      const query = { email: email };
+      const result = await tableReserveCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // finished
   } finally {
   }
 }
