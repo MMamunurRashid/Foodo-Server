@@ -6,6 +6,14 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const app = express();
+
+
+const SSLCommerzPayment = require('sslcommerz-lts')
+const store_id = process.env.Store_ID;
+const store_passwd = process.env.Store_Password;
+// console.log(store_id, store_passwd);
+const is_live = false //true for live, false for sandbox
+
 // middleware
 app.use(cors());
 app.use(express.json());
@@ -221,6 +229,76 @@ async function run() {
       const result = await orderCollection.insertOne(query);
       res.send(result);
     });
+    // Orders with payment
+    app.post("/orders-payment", async (req, res) => {
+      const order = req.body;
+
+      
+const result = order.items.join(', ');
+// console.log(result);
+     
+      const transactionId = new ObjectId().toString();
+      const data = {
+        total_amount: order.totalPrice,
+        currency: 'BDT',
+        tran_id: transactionId, // use unique tran_id for each api call
+        success_url: `http://localhost:5000/payment/success?transactionId=${transactionId}`,
+        fail_url: `http://localhost:5000/payment/fail?transactionId=${transactionId}`,
+        cancel_url: `http://localhost:5000/payment/cancel`,
+        ipn_url: 'http://localhost:3030/ipn',
+        product_name: result,
+        product_category: 'Food',
+        product_profile:'general',
+        cus_name: order.userName,
+        cus_email: order.orderEmail,
+        cus_add1: order.location,
+        shipping_method: 'No',
+        cus_country: 'Bangladesh',
+        cus_phone: order.phoneNumber,
+       
+      };
+    
+    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+    sslcz.init(data).then(apiResponse => {
+        // Redirect the user to payment gateway
+      let GatewayPageURL = apiResponse.GatewayPageURL
+      orderCollection.insertOne({...order, transactionId, payStatus: 'unpaid',});
+        res.send({url: GatewayPageURL});
+        console.log(' : ', apiResponse)
+    });
+      
+      // const result = await orderCollection.insertOne(query);
+      // res.send(result);
+    });
+
+    app.post("/payment/success", async (req, res) => {
+            const { transactionId } = req.query;
+
+            if(!transactionId){
+                return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+            }
+            
+            const result = await orderCollection.updateOne(
+              { transactionId },
+              { $set: { payStatus: 'paid', paidAt: new Date() } }
+            );
+
+            if(result.modifiedCount > 0){
+                res.redirect(`http://localhost:3000/dashboard/my-orders`);
+            }
+        });
+
+        app.post("/payment/fail", async (req, res) => {
+            const { transactionId } = req.query;
+            if (!transactionId) {
+                return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+            }
+            const result = await orderCollection.deleteOne({ transactionId });
+            if(result.deletedCount){
+                res.redirect(`http://localhost:3000/dashboard/my-orders`);
+            }
+        });
+
     //get order for admin
     app.get("/orders", verifyJWT, verifyAdmin, async (req, res) => {
       const query = {};
