@@ -42,6 +42,37 @@ function verifyJWT(req, res, next) {
   });
 }
 
+// Function to get the start of the current and last month
+function getStartOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getStartOfLastMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth() - 1, 1);
+}
+function getStartOfDay(date) {
+  const startOfDay = new Date(date);
+  startOfDay.setHours(0, 0, 0, 0);
+  return startOfDay;
+}
+
+function getEndOfDay(date) {
+  const endOfDay = new Date(date);
+  endOfDay.setHours(23, 59, 59, 999);
+  return endOfDay;
+}
+
+function getStartOfYesterday(date) {
+  const yesterday = new Date(date);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getStartOfDay(yesterday);
+}
+
+function getEndOfYesterday(date) {
+  const yesterday = new Date(date);
+  yesterday.setDate(yesterday.getDate() - 1);
+  return getEndOfDay(yesterday);
+}
 //
 async function run() {
   try {
@@ -233,10 +264,10 @@ async function run() {
     app.post("/orders-payment", async (req, res) => {
       const order = req.body;
 
-      
-const result = order.items.join(', ');
-// console.log(result);
-     
+
+      const result = order.items.join(', ');
+      // console.log(result);
+
       const transactionId = new ObjectId().toString();
       const data = {
         total_amount: order.totalPrice,
@@ -248,56 +279,110 @@ const result = order.items.join(', ');
         ipn_url: 'http://localhost:3030/ipn',
         product_name: result,
         product_category: 'Food',
-        product_profile:'general',
+        product_profile: 'general',
         cus_name: order.userName,
         cus_email: order.orderEmail,
         cus_add1: order.location,
         shipping_method: 'No',
         cus_country: 'Bangladesh',
         cus_phone: order.phoneNumber,
-       
+
       };
-    
-    const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
-    sslcz.init(data).then(apiResponse => {
+
+      const sslcz = new SSLCommerzPayment(store_id, store_passwd, is_live)
+      sslcz.init(data).then(apiResponse => {
         // Redirect the user to payment gateway
-      let GatewayPageURL = apiResponse.GatewayPageURL
-      orderCollection.insertOne({...order, transactionId, payStatus: 'unpaid',});
-        res.send({url: GatewayPageURL});
+        let GatewayPageURL = apiResponse.GatewayPageURL
+        orderCollection.insertOne({ ...order, transactionId, payStatus: 'unpaid', });
+        res.send({ url: GatewayPageURL });
         console.log(' : ', apiResponse)
-    });
-      
+      });
+
       // const result = await orderCollection.insertOne(query);
       // res.send(result);
     });
 
     app.post("/payment/success", async (req, res) => {
-            const { transactionId } = req.query;
+      const { transactionId } = req.query;
 
-            if(!transactionId){
-                return res.redirect(`http://localhost:3000/dashboard/my-orders`);
-            }
-            
-            const result = await orderCollection.updateOne(
-              { transactionId },
-              { $set: { payStatus: 'paid', paidAt: new Date() } }
-            );
+      if (!transactionId) {
+        return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+      }
 
-            if(result.modifiedCount > 0){
-                res.redirect(`http://localhost:3000/dashboard/my-orders`);
-            }
-        });
+      const result = await orderCollection.updateOne(
+        { transactionId },
+        { $set: { payStatus: 'paid', paidAt: new Date() } }
+      );
 
-        app.post("/payment/fail", async (req, res) => {
-            const { transactionId } = req.query;
-            if (!transactionId) {
-                return res.redirect(`http://localhost:3000/dashboard/my-orders`);
-            }
-            const result = await orderCollection.deleteOne({ transactionId });
-            if(result.deletedCount){
-                res.redirect(`http://localhost:3000/dashboard/my-orders`);
-            }
-        });
+      if (result.modifiedCount > 0) {
+        res.redirect(`http://localhost:3000/dashboard/my-orders`);
+      }
+    });
+
+    app.post("/payment/fail", async (req, res) => {
+      const { transactionId } = req.query;
+      if (!transactionId) {
+        return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+      }
+      const result = await orderCollection.deleteOne({ transactionId });
+      if (result.deletedCount) {
+        res.redirect(`http://localhost:3000/dashboard/my-orders`);
+      }
+    });
+
+
+
+    app.get("/total-sell", verifyJWT, verifyAdmin, async (req, res) => {
+      const option = req.query.option;
+
+      const currentDate = new Date();
+
+      const startOfToday = new Date(currentDate);
+      startOfToday.setHours(0, 0, 0, 0);
+
+      const startOfCurrentMonth = getStartOfMonth(currentDate).toISOString();
+
+      const startOfLastMonth = getStartOfLastMonth(currentDate).toISOString();
+
+      const startOfYesterday = getStartOfYesterday(currentDate).toISOString();
+      const endOfYesterday = getEndOfYesterday(currentDate).toISOString();
+
+      // Find orders for today
+      const ordersToday = await orderCollection.find({
+        $and: [{ orderDate: { $gte: startOfToday.toISOString(), $lte: currentDate.toISOString() } }, { payStatus: "paid" }]
+      }).toArray();
+
+      // Find orders for this month
+      const ordersThisMonth = await orderCollection.find({
+        $and: [{ orderDate: { $gte: startOfCurrentMonth, $lte: currentDate.toISOString() } }, { payStatus: "paid" }]
+      }).toArray();
+
+      // Find orders for last month
+      const ordersLastMonth = await orderCollection.find({
+        $and: [{ orderDate: { $gte: startOfLastMonth, $lte: startOfCurrentMonth } }, { payStatus: "paid" }]
+      }).toArray();
+
+      const ordersYesterdayPaid = await orderCollection.find({
+        $and: [
+          { orderDate: { $gte: startOfYesterday, $lte: endOfYesterday } },
+          { payStatus: "paid" }
+        ]
+      }).toArray();
+
+      if (option === 'Today') {
+        res.send(ordersToday);
+      }
+      if (option === 'Yesterday') {
+        res.send(ordersYesterdayPaid);
+      }
+      if (option === "This Month") {
+        res.send(ordersThisMonth)
+      }
+      if (option === "Last Month") {
+        res.send(ordersLastMonth)
+        console.log(option, "Last Month");
+      }
+    });
 
     //get order for admin
     app.get("/orders", verifyJWT, verifyAdmin, async (req, res) => {
