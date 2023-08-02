@@ -273,9 +273,9 @@ async function run() {
         total_amount: order.totalPrice,
         currency: 'BDT',
         tran_id: transactionId, // use unique tran_id for each api call
-        success_url: `http://localhost:5000/payment/success?transactionId=${transactionId}`,
-        fail_url: `http://localhost:5000/payment/fail?transactionId=${transactionId}`,
-        cancel_url: `http://localhost:5000/payment/cancel`,
+        success_url: `https://rms-foodo.web.app/payment/success?transactionId=${transactionId}`,
+        fail_url: `https://rms-foodo.web.app/payment/fail?transactionId=${transactionId}`,
+        cancel_url: `https://rms-foodo.web.app/payment/cancel`,
         ipn_url: 'http://localhost:3030/ipn',
         product_name: result,
         product_category: 'Food',
@@ -306,7 +306,7 @@ async function run() {
       const { transactionId } = req.query;
 
       if (!transactionId) {
-        return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+        return res.redirect(`https://rms-foodo.web.app/dashboard/my-orders`);
       }
 
       const result = await orderCollection.updateOne(
@@ -315,18 +315,18 @@ async function run() {
       );
 
       if (result.modifiedCount > 0) {
-        res.redirect(`http://localhost:3000/dashboard/my-orders`);
+        res.redirect(`https://rms-foodo.web.app/dashboard/my-orders`);
       }
     });
 
     app.post("/payment/fail", async (req, res) => {
       const { transactionId } = req.query;
       if (!transactionId) {
-        return res.redirect(`http://localhost:3000/dashboard/my-orders`);
+        return res.redirect(`https://rms-foodo.web.app/dashboard/my-orders`);
       }
       const result = await orderCollection.deleteOne({ transactionId });
       if (result.deletedCount) {
-        res.redirect(`http://localhost:3000/dashboard/my-orders`);
+        res.redirect(`https://rms-foodo.web.app/dashboard/my-orders`);
       }
     });
 
@@ -380,7 +380,7 @@ async function run() {
       }
       if (option === "Last Month") {
         res.send(ordersLastMonth)
-        console.log(option, "Last Month");
+        // console.log(option, "Last Month");
       }
     });
 
